@@ -1,12 +1,24 @@
 
+import os
 import re
+import logging
 import multiprocessing as mp
 from constants import LOG_ENCODING
 from collections.abc import Callable
 
 
+def scan_whole_dir(dir_name: str, is_sort_by_time: bool = False):
+    out = []
+    for root, dirs, files in os.walk(dir_name):
+        for file in files:
+            out.append(os.path.join(root, file))
+    if is_sort_by_time:
+        return sorted(out, key=os.path.getmtime)
+    return sorted(out)
+
+
 def load_string(file: str, encoding: str = LOG_ENCODING):
-    print(f"Read '{file}'")
+    logging.debug(f"Read '{file}'")
     with open(file=file, mode="r", encoding=encoding) as f:
         s = f.read()
         f.close()
