@@ -1,12 +1,12 @@
 
+import logging
 from json import dumps
 from time import sleep
 from pytz import timezone
 from requests import post
 from secret import secret
 from datetime import datetime
-from utils import stringify_dict
-from utils import multi_thread_map
+from utils import multi_thread_map, single_thread_map, stringify_dict
 
 
 def post_log_line_to_loki(
@@ -41,19 +41,21 @@ def post_log_line_to_loki(
              }]
         }]
     }
-    print("Send log line from '{}'".format(log_datetime))
+    logging.debug(f"Send log line from '{log_datetime}'")
     for attempt in range(1, attempts + 1):
         try:
             response = post(loki_url, data=dumps(payload), headers=headers)
+            response.close()
             if response.status_code // 100 == 2:
                 return
             content = response.content
             if len(content) > 0:
-                print("Got non-empty response: '{}'".format(content.decode("utf-8")))
+                content = content.decode("utf-8")
+                logging.debug(f"Got non-empty response: '{content}'")
         except Exception:
-            print(f"Posting failed for attempt {attempt}")
+            logging.debug(f"Posting failed for attempt {attempt}")
         sleep(pause)
-    print(f"Exceeded posting attempts")
+    logging.warning(f"Exceeded posting attempts from '{log_datetime}'")
 
 
 def post_log_dict_to_loki(d: dict):
@@ -67,10 +69,10 @@ def post_log_dict_to_loki(d: dict):
         log_host=secret["log_host"],
         log_job=secret["log_job"],
         labels=d,
-        attempts=10
+        attempts=100
     )
 
 
 def post_log_lines_to_loki(lines: list):
-    print(f'Post {len(lines)} lines to Loki')
-    _ = multi_thread_map(post_log_dict_to_loki, lines, is_async=True)
+    logging.info(f'Post {len(lines)} lines to Loki')
+    _ = single_thread_map(post_log_dict_to_loki, lines)

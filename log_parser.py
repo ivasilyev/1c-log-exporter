@@ -87,6 +87,7 @@ def parse_log_file(file: str):
 
 
 def parse_log_archive(archive: str):
+    logging.info(f"Parse logs for archive {archive}")
     line_dicts = list()
     with ZipFile(archive, "r") as zf:
         for info_entry in zf.infolist():
