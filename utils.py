@@ -68,8 +68,10 @@ def multi_thread_map(
     processes: int = 0,
     is_async: bool = False
 ) -> list:
-    if processes == 0:
-        processes = mp.cpu_count()
+    cpu_count = mp.cpu_count()
+    if processes > cpu_count or processes < 1:
+        processes = cpu_count
+        logging.debug(f"Use {processes} worker processes")
     pool = mp.Pool(processes=processes)
     if is_async:
         result = pool.map_async(func, queue)
