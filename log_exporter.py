@@ -4,9 +4,10 @@ from json import dumps
 from time import sleep
 from pytz import timezone
 from requests import post
-from secret import secret
+import secret
 from datetime import datetime
 from utils import multi_thread_map, single_thread_map, stringify_dict
+from constants import SINGLE_PUSH_ATTEMPTS, SINGLE_PUSH_DELAY_SECONDS
 
 
 def post_log_line_to_loki(
@@ -41,7 +42,7 @@ def post_log_line_to_loki(
              }]
         }]
     }
-    logging.debug(f"Send log line from '{log_datetime}'")
+    logging.debug(f"Send log line from '{log_datetime}' with labels: '{dumps(_labels)}'")
     for attempt in range(1, attempts + 1):
         try:
             response = post(loki_url, data=dumps(payload), headers=headers)
@@ -59,20 +60,26 @@ def post_log_line_to_loki(
 
 
 def post_log_dict_to_loki(d: dict):
+    if secret.log_job is None:
+        raise ValueError("No current log job")
     log_datetime = d.pop("event_time")
     log_message = d.pop("event_message")
     post_log_line_to_loki(
-        loki_url=secret["loki_url"],
+        loki_url=secret.secret["loki_url"],
         log_datetime=log_datetime,
         log_message=log_message,
-        log_source=secret["log_source"],
-        log_host=secret["log_host"],
-        log_job=secret["log_job"],
+        log_source=secret.secret["log_source"],
+        log_host=secret.secret["log_host"],
+        log_job=secret.log_job,
         labels=d,
-        attempts=100
+        attempts=SINGLE_PUSH_ATTEMPTS,
+        pause=SINGLE_PUSH_DELAY_SECONDS
     )
 
 
-def post_log_lines_to_loki(lines: list):
+def post_log_lines_to_loki(lines: list, threads: int = 0):
     logging.info(f'Post {len(lines)} lines to Loki')
-    _ = single_thread_map(post_log_dict_to_loki, lines)
+    if threads < 2:
+        _ = single_thread_map(post_log_dict_to_loki, lines)
+    else:
+        _ = multi_thread_map(post_log_dict_to_loki, lines, processes=threads, is_async=True)
