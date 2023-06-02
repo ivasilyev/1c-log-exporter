@@ -4,7 +4,9 @@
 import logging
 from argparse import ArgumentParser
 from zipfile import BadZipFile, ZipFile
+import secret
 from env import get_logging_level
+from constants import LOGGING_TEMPLATE
 from log_parser import parse_log_file, parse_log_archive
 from log_exporter import post_log_lines_to_loki
 
@@ -37,9 +39,12 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger()
+    logger.setLevel(get_logging_level())
+    stream = logging.StreamHandler()
+    stream.setFormatter(logging.Formatter(LOGGING_TEMPLATE))
+    logger.addHandler(stream)
+
     input_file = parse_args()
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=get_logging_level(),
-    )
+    secret.log_job = secret.secret["log_jobs"][0]
     run(input_file)
