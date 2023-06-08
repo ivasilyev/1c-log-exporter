@@ -39,6 +39,8 @@ EOF
 
 (crontab -l 2>/dev/null; echo "@reboot /usr/bin/bash \"${TOOL_SCRIPT}\" &") | crontab -
 crontab -l
+
+pip install -r "requirements.txt"
 ```
 
 ### Конфигурация
